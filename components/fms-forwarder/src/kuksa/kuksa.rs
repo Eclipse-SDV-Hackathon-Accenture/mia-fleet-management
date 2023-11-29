@@ -29,6 +29,7 @@ use fms_proto::fms::KeyValue;
 use fms_proto::fms::SnapshotData;
 use std::env;
 
+mod kuksa;
 #[derive(Debug)]
 pub struct UnsupportedValueTypeError{}
 

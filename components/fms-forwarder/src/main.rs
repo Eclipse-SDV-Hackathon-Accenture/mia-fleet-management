@@ -28,9 +28,10 @@ use log::{error, info};
 use tokio::sync::mpsc;
 
 mod status_publishing;
-mod vehicle_abstraction;
+pub mod kuksa;
 mod hono_publisher;
 mod mqtt_connection;
+mod vehicle_abstraction;
 
 const SUBCOMMAND_HONO: &str = "hono";
 const SUBCOMMAND_INFLUX: &str = "influx";
