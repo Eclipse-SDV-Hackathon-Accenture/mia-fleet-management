@@ -3,6 +3,7 @@
  */
 
 module.exports = {
+    credentialSecret: false,
     editorTheme: {
         functionExternalModules: true,
         theme: "midnight-red",

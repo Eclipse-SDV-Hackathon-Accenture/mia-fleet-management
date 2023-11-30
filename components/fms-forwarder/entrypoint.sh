@@ -9,7 +9,7 @@ if [ -f "$SIGNAL_FILTER_FILE" ]; then
     export SIGNAL_FILTER
 fi
 
-/app/fms-forwarder & PID=$!
+/app/fms-forwarder influx & PID=$!
 
 while true
 do
@@ -25,7 +25,8 @@ do
 
             echo "Restarting fms-forwarder."
             kill -9 $PID
-            /app/fms-forwarder & PID=$!
+            sleep 1
+            /app/fms-forwarder influx & PID=$!
         fi
     fi
     sleep 5
