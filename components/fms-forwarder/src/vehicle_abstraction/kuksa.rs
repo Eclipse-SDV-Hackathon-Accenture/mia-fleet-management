@@ -28,6 +28,7 @@ use fms_proto::fms::VehicleStatus;
 use fms_proto::fms::KeyValue;
 use fms_proto::fms::SnapshotData;
 use std::env;
+use crate::vehicle_abstraction::vss;
 
 #[derive(Debug)]
 pub struct UnsupportedValueTypeError{}
@@ -216,37 +217,47 @@ impl TryFrom<Value> for Option<bool> {
     }
 }
 
-pub fn new_vehicle_status(data: HashMap<String, Value>, _default_vin: &String) -> VehicleStatus {
+
+pub fn new_vehicle_status(data: HashMap<String, Value>, default_vin: &String) -> VehicleStatus {
     let mut vehicle_status = VehicleStatus::new();
     vehicle_status.created = MessageField::some(Timestamp::now());
+    vehicle_status.vin = data
+    .get(vss::VSS_VEHICLE_VEHICLEIDENTIFICATION_VIN)
+    .map_or(default_vin.to_owned(), |value| {
+        value.clone().try_into().unwrap()
+    });
+
     println!("blubb");
 
     match env::var("SIGNAL_FILTER") {
         Ok(value) => {
             let mut snapshot_data_vec = SnapshotData::new();
 
-            println!("value: ");
-            println!(value);
+            println!("value: {}", value);
             for field in value.split(',') {
-                println!("field: ");
-                println!(field);
+                println!("field: {}", field);
+
                 if let Some(measurement) = data.get(field) {
                     let mut entry = KeyValue::new();
                     entry.key = field.to_string();
-                    // entry.value = measurement.clone().try_into().unwrap().to_string();
-                    entry.value = <datapoint::Value as TryInto<String>>::try_into(measurement.clone()).unwrap().to_string();
-                    //entry.value = "123".to_string();
+                    if (field.to_lowercase().contains("fuel")) {
+                        entry.value = measurement.clone().try_into().unwrap();
 
-                    println!("k,v: ");
-                    println!(key);
-                    println!(value);
+                    } else {
+                        if (field.to_lowercase().contains("speed")) {
+                            entry.value = measurement.clone().try_into().unwrap();
+    
+                        } else  {
+                            entry.value = "unknown".to_string();
+                        }
+                    }
                     snapshot_data_vec.entries.push(entry);
                 }
             }
             vehicle_status.snapshot_data = MessageField::some(snapshot_data_vec);
         }
-        Err(_) => {
-            println!("No filter selected, so no values are forwarded. Configure SIGNAL_FILTER, if you want to get signal");
+        Err(e) => {
+            println!("No filter selected, so no values are forwarded. Configure SIGNAL_FILTER, if you want to get signal. {}", e);
         }
     }
 

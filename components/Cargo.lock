@@ -538,6 +538,7 @@ dependencies = [
 name = "fms-forwarder"
 version = "0.1.0-SNAPSHOT"
 dependencies = [
+ "anyhow",
  "async-trait",
  "chrono",
  "clap",
