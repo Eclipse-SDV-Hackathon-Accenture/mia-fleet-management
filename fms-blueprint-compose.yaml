@@ -19,10 +19,10 @@
 
 networks:
   fms-backend:
-    driver: overlay
+    driver: bridge  # overlay does not work and complains about docker swarm stuff
     attachable: true
   fms-vehicle:
-    driver: overlay
+    driver: bridge
     attachable: true
 
 configs:
@@ -40,6 +40,7 @@ volumes:
   influxdb-config:
   influxdb-auth:
   grafana-datasources:
+  vss-config-share:
 
 services:
   influxdb:
@@ -166,10 +167,15 @@ services:
       KUKSA_DATA_BROKER_URI: "http://databroker:55556"
       RUST_LOG: "${FMS_FORWARDER_LOG_CONFIG:-info,fms_forwarder=info,influx_client=info}"
       TRUST_STORE_PATH: "${FMS_FORWARDER_TRUST_STORE_PATH:-/etc/ssl/certs/ca-certificates.crt}"
+      SIGNAL_FILTER: "Vehicle.Speed,Vehicle.Powertrain.FuelSystem.Tank.First.RelativeLevel,Vehicle.Exterior.AirTemperature"
     volumes:
     - type: "volume"
       source: "influxdb-auth"
       target: "/etc/forwarder"
+      read_only: true
+    - type: "volume"
+      source: "vss-config-share"
+      target: "/etc/vss"
       read_only: true
   csv-provider:
     image: "ghcr.io/eclipse/kuksa.val.feeders/csv-provider:main"
@@ -187,3 +193,56 @@ services:
       PROVIDER_LOG_LEVEL: "INFO"
       KUKSA_DATA_BROKER_ADDR: "databroker"
       KUKSA_DATA_BROKER_PORT: "55556"
+
+  nodered:
+    build:
+      context: node-red
+      dockerfile: Dockerfile
+    ports:
+    - "8082:1880"
+    networks:
+    - "fms-backend"
+    depends_on:
+      influxdb:
+        condition: service_started
+    volumes:
+    - type: "volume"
+      source: "influxdb-auth"
+      target: "/tmp"
+      read_only: true
+    - type: "volume"
+      source: "vss-config-share"
+      target: "/data/vss"
+      read_only: false
+    environment:
+      INFLUXDB_TOKEN_FILE: "/tmp/fms-demo.token"
+
+  vss-forwarder:
+    build:
+      context: components/vss-forwarder
+      dockerfile: Dockerfile
+    container_name: "vss-forwarder"
+    networks:
+    - "fms-backend"
+    - "fms-vehicle"
+    depends_on:
+      influxdb:
+        condition: service_healthy
+      databroker:
+        condition: service_started
+    volumes:
+    - type: "volume"
+      source: "influxdb-auth"
+      target: "/etc/influxdb"
+      read_only: true
+    - type: "volume"
+      source: "vss-config-share"
+      target: "/data/vss"
+      read_only: true
+    env_file: "${FMS_FORWARDER_PROPERTIES_FILE:-./influxdb/fms-demo.env}"
+    environment:
+      INFLUXDB_TOKEN_FILE: "/tmp/fms-demo.token"
+      KUKSA_DATA_BROKER_ADDR: "databroker"
+      KUKSA_DATA_BROKER_PORT: "55556"
+      SIGNAL_FILTER: "Vehicle.Speed,Vehicle.Exterior.AirTemperature"
+

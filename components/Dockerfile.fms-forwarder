@@ -24,7 +24,9 @@ ENV BUILDTARGET="x86_64-unknown-linux-musl"
 FROM ghcr.io/rust-cross/rust-musl-cross:aarch64-musl AS builder-arm64
 ENV BUILDTARGET="aarch64-unknown-linux-musl"
 
-FROM builder-$TARGETARCH AS builder
+#RUN bash -c echo "Tar: ${TARGETARCH}"
+#FROM builder-$TARGETARCH AS builder
+FROM builder-amd64 AS builder
 ARG TARGETARCH
 RUN apt-get update && apt-get install -y ca-certificates \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
@@ -43,10 +45,13 @@ WORKDIR /home/rust/src/components
 RUN cargo build --package fms-forwarder --release --target $BUILDTARGET
 RUN mv target/${BUILDTARGET}/release/fms-forwarder /home/rust
 
-FROM scratch
+FROM alpine:latest
 
 COPY --from=builder /home/rust/fms-forwarder /app/fms-forwarder
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY . /foobar
+RUN ls -lisa /foobar
 COPY LICENSES /app/
+COPY fms-forwarder/entrypoint.sh /app/entrypoint.sh
 
-ENTRYPOINT [ "/app/fms-forwarder" ]
+ENTRYPOINT [ "/app/entrypoint.sh" ]
